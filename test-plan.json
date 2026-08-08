@@ -26,7 +26,7 @@
       "fullName": "declarative-migrations/declarative-postgres-migrate.rs",
       "exists": true,
       "branch": "agent/formal-borrow-checked-migrations",
-      "sha": "21882db2896628707a2e8601c7bf2c1b1ed8454c",
+      "sha": "5fd4057602481866662f9cbb8dea6677403bfa82",
       "visibility": "public"
     }
   ],
