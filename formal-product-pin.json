@@ -1,0 +1,13 @@
+{
+  "repository": "declarative-migrations/declarative-postgres-migrate.rs",
+  "sha": "63a518b545c9e8c32cdc0623f91252eb9b6f30ec",
+  "source_pr": 31,
+  "formal_model_version": 1,
+  "checks": [
+    "immutable_exact_sha",
+    "bounded_lifecycle_state_space",
+    "rust_formal_module_tests",
+    "32768_case_borrow_property_suite",
+    "optimized_property_suite"
+  ]
+}

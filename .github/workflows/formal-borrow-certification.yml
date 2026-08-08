@@ -1,0 +1,86 @@
+name: Formal borrow-checker certification
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PRODUCT_REPOSITORY: declarative-migrations/declarative-postgres-migrate.rs
+  PRODUCT_SHA: 63a518b545c9e8c32cdc0623f91252eb9b6f30ec
+
+jobs:
+  certify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out certification harness
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+
+      - name: Check out exact product commit
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          repository: ${{ env.PRODUCT_REPOSITORY }}
+          ref: ${{ env.PRODUCT_SHA }}
+          path: product
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Prove immutable product pin
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git -C product rev-parse HEAD)"
+          test "$actual" = "$PRODUCT_SHA"
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          pin = json.loads(Path("formal-product-pin.json").read_text())
+          assert pin["repository"] == os.environ["PRODUCT_REPOSITORY"]
+          assert pin["sha"] == os.environ["PRODUCT_SHA"]
+          print(f"certifying {pin['repository']}@{pin['sha']}")
+          PY
+
+      - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30
+        with:
+          toolchain: stable
+
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        with:
+          workspaces: product -> target
+
+      - name: Exhaustively check bounded lifecycle model
+        run: python3 product/formal/model_check.py
+
+      - name: Check internal formal module tests
+        run: >-
+          cargo test
+          --manifest-path product/Cargo.toml
+          --locked --lib formal
+
+      - name: Run high-volume migration borrow properties
+        env:
+          PROPTEST_CASES: 32768
+          RUST_BACKTRACE: "1"
+        run: >-
+          cargo test
+          --manifest-path product/Cargo.toml
+          --locked --test formal
+
+      - name: Recheck optimized compilation
+        run: >-
+          cargo test
+          --manifest-path product/Cargo.toml
+          --locked --release --test formal
