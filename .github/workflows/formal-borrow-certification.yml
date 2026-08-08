@@ -1,4 +1,4 @@
-name: Formal borrow-checker certification
+name: Exact-SHA plan-safety certification
 
 on:
   pull_request:
@@ -15,20 +15,20 @@ concurrency:
 
 env:
   PRODUCT_REPOSITORY: declarative-migrations/declarative-postgres-migrate.rs
-  PRODUCT_SHA: 63a518b545c9e8c32cdc0623f91252eb9b6f30ec
+  PRODUCT_SHA: a5e868acc0206fa9c3e91b5e36e0b1b111805885
 
 jobs:
   certify:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - name: Check out certification harness
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Check out exact product commit
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ env.PRODUCT_REPOSITORY }}
           ref: ${{ env.PRODUCT_SHA }}
@@ -50,37 +50,54 @@ jobs:
           pin = json.loads(Path("formal-product-pin.json").read_text())
           assert pin["repository"] == os.environ["PRODUCT_REPOSITORY"]
           assert pin["sha"] == os.environ["PRODUCT_SHA"]
+          assert pin["source_pr"] == 31
+          assert pin["plan_safety_model_version"] == 1
           print(f"certifying {pin['repository']}@{pin['sha']}")
           PY
 
       - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30
         with:
           toolchain: stable
+          components: rustfmt, clippy
 
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
           workspaces: product -> target
 
-      - name: Exhaustively check bounded lifecycle model
-        run: python3 product/formal/model_check.py
+      - name: Check exact product formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in product/src/lib.rs product/src/plan_safety/*.rs product/tests/plan_safety.rs; do
+            rustfmt --edition 2021 --check --config skip_children=true "$file"
+          done
 
-      - name: Check internal formal module tests
+      - name: Strictly lint typed-plan safety
         run: >-
-          cargo test
+          cargo clippy
           --manifest-path product/Cargo.toml
-          --locked --lib formal
+          --locked --lib --test plan_safety -- -D warnings
 
-      - name: Run high-volume migration borrow properties
+      - name: Recheck formal lifecycle and compile-time contracts
+        run: |
+          cargo test --manifest-path product/Cargo.toml --locked --lib formal::
+          cargo test --manifest-path product/Cargo.toml --locked --doc
+          cargo test --manifest-path product/Cargo.toml --locked --lib plan_safety::
+
+      - name: Run 32,768 generated typed-plan cases
         env:
           PROPTEST_CASES: 32768
           RUST_BACKTRACE: "1"
         run: >-
           cargo test
           --manifest-path product/Cargo.toml
-          --locked --test formal
+          --locked --test plan_safety
 
-      - name: Recheck optimized compilation
+      - name: Repeat 32,768 cases under optimized compilation
+        env:
+          PROPTEST_CASES: 32768
+          RUST_BACKTRACE: "1"
         run: >-
           cargo test
           --manifest-path product/Cargo.toml
-          --locked --release --test formal
+          --locked --release --test plan_safety

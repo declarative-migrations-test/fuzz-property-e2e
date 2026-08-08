@@ -1,13 +1,17 @@
 {
   "repository": "declarative-migrations/declarative-postgres-migrate.rs",
-  "sha": "63a518b545c9e8c32cdc0623f91252eb9b6f30ec",
+  "sha": "a5e868acc0206fa9c3e91b5e36e0b1b111805885",
   "source_pr": 31,
-  "formal_model_version": 1,
+  "parent_pr": 30,
+  "plan_safety_model_version": 1,
   "checks": [
     "immutable_exact_sha",
-    "bounded_lifecycle_state_space",
-    "rust_formal_module_tests",
-    "32768_case_borrow_property_suite",
-    "optimized_property_suite"
+    "targeted_rustfmt",
+    "strict_plan_safety_clippy",
+    "bounded_lifecycle_model",
+    "compile_fail_typestate_contracts",
+    "plan_safety_unit_contracts",
+    "32768_case_typed_plan_property_suite",
+    "optimized_32768_case_property_suite"
   ]
 }
