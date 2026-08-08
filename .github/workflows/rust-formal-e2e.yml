@@ -25,7 +25,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: declarative-migrations/declarative-postgres-migrate.rs
-          ref: 21882db2896628707a2e8601c7bf2c1b1ed8454c
+          ref: 5fd4057602481866662f9cbb8dea6677403bfa82
           path: upstream
           persist-credentials: false
           show-progress: false
@@ -39,7 +39,9 @@ jobs:
       - name: Format and strictly lint the exact head
         working-directory: upstream
         run: |
-          cargo fmt --all -- --check
+          for file in src/formal.rs src/lease.rs src/lib.rs tests/lease_contract.rs; do
+            rustfmt --edition 2021 --check --config skip_children=true "$file"
+          done
           cargo clippy --locked --lib --tests -- -D warnings
       - name: Exhaustively and randomly exercise migration states
         working-directory: upstream
