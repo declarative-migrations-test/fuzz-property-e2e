@@ -26,11 +26,13 @@
       "fullName": "declarative-migrations/declarative-postgres-migrate.rs",
       "exists": true,
       "branch": "main",
-      "sha": "21eb846e356b2a5aff068b21e77903e6cca50452",
+      "sha": "ff90a32bfddd09e22ab270b7a2e6f6deb7ac8304",
       "visibility": "public"
     }
   ],
-  "sourceGates": [],
+  "sourceGates": [
+    "product main merge ff90a32bfddd09e22ab270b7a2e6f6deb7ac8304"
+  ],
   "imports": [],
   "security": {
     "immutableSourcePins": true,
