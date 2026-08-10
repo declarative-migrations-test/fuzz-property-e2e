@@ -1,0 +1,54 @@
+name: rust formal model certification
+
+on:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "31 7 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: formal-model-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  exact-head-formal-model:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      PROPTEST_CASES: "4096"
+      RUST_BACKTRACE: "1"
+    steps:
+      - name: Check out the product main merge
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: declarative-migrations/declarative-postgres-migrate.rs
+          ref: ff90a32bfddd09e22ab270b7a2e6f6deb7ac8304
+          path: upstream
+          persist-credentials: false
+          show-progress: false
+      - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        with:
+          workspaces: upstream -> target
+      - name: Format and strictly lint the exact head
+        working-directory: upstream
+        run: |
+          for file in src/formal.rs src/lease.rs src/lib.rs tests/lease_contract.rs; do
+            rustfmt --edition 2021 --check --config skip_children=true "$file"
+          done
+          cargo clippy --locked --lib --tests -- -D warnings
+      - name: Exhaustively and randomly exercise migration states
+        working-directory: upstream
+        run: |
+          cargo test --locked --lib formal:: -- --nocapture
+          cargo test --locked --lib lease:: -- --nocapture
+          cargo test --locked --test fuzz_splitter -- --nocapture
+      - name: Compile positive and negative borrow contracts
+        working-directory: upstream
+        run: cargo test --locked --doc
